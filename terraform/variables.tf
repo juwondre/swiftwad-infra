@@ -33,3 +33,9 @@ variable "sample_app_repo" {
   type        = string
   default     = "juwondre/swiftwad-sample-api"
 }
+
+variable "sample_app_repo_id_pinned" {
+  description = "Same repo in GitHub's ID-pinned OIDC sub format (from GET /repos/{owner}/{repo}/actions/oidc/customization/sub)"
+  type        = string
+  default     = "juwondre@98793109/swiftwad-sample-api@1320664713"
+}

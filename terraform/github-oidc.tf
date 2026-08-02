@@ -21,10 +21,15 @@ data "aws_iam_policy_document" "gh_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # GitHub now issues ID-pinned sub claims (owner@id/repo@id) so trust
+    # survives neither rename nor repo recreation. Both forms accepted.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.sample_app_repo}:*"]
+      values = [
+        "repo:${var.sample_app_repo}:*",
+        "repo:${var.sample_app_repo_id_pinned}:*",
+      ]
     }
   }
 }
