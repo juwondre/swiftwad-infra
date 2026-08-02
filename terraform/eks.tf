@@ -23,9 +23,9 @@ module "eks" {
     default = {
       instance_types = ["t3.medium"]
       ami_type       = "AL2023_x86_64_STANDARD"
-      min_size       = 2
-      max_size       = 3
-      desired_size   = 2
+      min_size       = var.node_group_sizes[each.key].min
+      max_size       = var.node_group_sizes[each.key].max
+      desired_size   = var.node_group_sizes[each.key].desired
       disk_size      = 20
     }
   }
@@ -33,4 +33,14 @@ module "eks" {
   tags = {
     Environment = each.key
   }
+}
+
+# The ArgoCD hub on staging talks to the dev API server across the VPC.
+resource "aws_vpc_security_group_ingress_rule" "hub_to_dev_api" {
+  security_group_id = module.eks["dev"].cluster_primary_security_group_id
+  description       = "ArgoCD hub (staging) to dev API server"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+  cidr_ipv4         = "10.20.0.0/16"
 }
