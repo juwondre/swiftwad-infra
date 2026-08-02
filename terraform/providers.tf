@@ -1,6 +1,5 @@
 provider "aws" {
-  region  = var.region
-  profile = "swiftwad"
+  region = var.region
 
   default_tags {
     tags = {

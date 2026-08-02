@@ -3,6 +3,11 @@ variable "region" {
   default = "us-east-1"
 }
 
+variable "cluster_prefix" {
+  type    = string
+  default = "swiftwad"
+}
+
 variable "cluster_version" {
   type    = string
   default = "1.34"
