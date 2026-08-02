@@ -37,6 +37,18 @@ KARGO_ADMIN_PASSWORD="${KARGO_ADMIN_PASSWORD:-}"     # export before running, or
 ATLANTIS_GITHUB_USER="juwondre"
 ATLANTIS_GITHUB_TOKEN="${ATLANTIS_GITHUB_TOKEN:-$(gh auth token)}"  # GitHub App creds in real project
 
+# IAM principals that keep kubectl admin on every cluster (day-one access
+# entries — see the Atlantis "cluster creator" gotcha in PLATFORM-SETUP.md).
+OPERATOR_ARNS=()                             # e.g. ("arn:aws:iam::123:role/platform-ops")
+
+# Feed the config block into terraform so the knobs actually drive it.
+export TF_VAR_cluster_prefix="$CLUSTER_PREFIX"
+export TF_VAR_region="$AWS_REGION"
+if [ ${#OPERATOR_ARNS[@]} -gt 0 ]; then
+  TF_VAR_operator_principal_arns=$(printf '"%s",' "${OPERATOR_ARNS[@]}")
+  export TF_VAR_operator_principal_arns="[${TF_VAR_operator_principal_arns%,}]"
+fi
+
 # Directory of this repo's terraform (relative to this script)
 TF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../terraform" && pwd)"
 # Local checkout of the gitops repo (for bootstrap-time values/manifests)
@@ -123,9 +135,14 @@ metadata:
     kubernetes.io/service-account.name: argocd-manager
 type: kubernetes.io/service-account-token
 TOKEN
-    sleep 3
-    local token endpoint ca
-    token=$(kubectl --kubeconfig "$kc" -n kube-system get secret argocd-manager-long-lived-token -o jsonpath='{.data.token}' | base64 -d)
+    # The token controller populates the secret asynchronously — poll for it.
+    local token="" endpoint ca
+    for _ in $(seq 1 20); do
+      token=$(kubectl --kubeconfig "$kc" -n kube-system get secret argocd-manager-long-lived-token -o jsonpath='{.data.token}' 2>/dev/null | base64 -d)
+      [ -n "$token" ] && break
+      sleep 3
+    done
+    [ -n "$token" ] || die "spoke ${cluster}: service account token never populated"
     endpoint=$(aws eks describe-cluster --name "$cluster" --query 'cluster.endpoint' --output text)
     ca=$(aws eks describe-cluster --name "$cluster" --query 'cluster.certificateAuthority.data' --output text)
 
@@ -168,7 +185,7 @@ phase_kargo() {
 
   log "kargo delivery config + git credentials"
   kubectl --kubeconfig "$HUB_KC" apply -f "$GITOPS_DIR/kargo/project.yaml"
-  for i in $(seq 1 20); do
+  for _ in $(seq 1 20); do
     kubectl --kubeconfig "$HUB_KC" get ns sample-api-delivery >/dev/null 2>&1 && break; sleep 3
   done
 
@@ -241,7 +258,7 @@ phase_atlantis() {
 
   log "waiting for load balancer hostname"
   local host=""
-  for i in $(seq 1 40); do
+  for _ in $(seq 1 40); do
     host=$(kubectl --kubeconfig "$HUB_KC" -n atlantis get svc atlantis \
       -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
     [ -n "$host" ] && break; sleep 10

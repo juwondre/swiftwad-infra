@@ -8,6 +8,12 @@ variable "cluster_prefix" {
   default = "swiftwad"
 }
 
+variable "operator_principal_arns" {
+  description = "IAM principals granted cluster-admin on every cluster via access entries (humans/roles that need kubectl)"
+  type        = list(string)
+  default     = []
+}
+
 variable "cluster_version" {
   type    = string
   default = "1.34"
