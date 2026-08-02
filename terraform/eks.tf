@@ -4,7 +4,7 @@ module "eks" {
 
   for_each = toset(var.environments)
 
-  cluster_name    = "swiftwad-${each.key}"
+  cluster_name    = "${var.cluster_prefix}-${each.key}"
   cluster_version = var.cluster_version
 
   vpc_id     = module.vpc.vpc_id
@@ -12,6 +12,24 @@ module "eks" {
 
   cluster_endpoint_public_access           = true
   enable_cluster_creator_admin_permissions = true
+
+  # Operator admin access declared in code, not inherited from whoever ran
+  # apply last — otherwise the first Atlantis apply replaces the human
+  # creator's access entry and locks every laptop out of kubectl.
+  # (POC default is empty: the bootstrap user's entries were restored via the
+  # EKS API and live outside terraform. Real project: set this on day one.)
+  access_entries = {
+    for idx, arn in var.operator_principal_arns :
+    "operator-${idx}" => {
+      principal_arn = arn
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    }
+  }
 
   cluster_addons = {
     coredns    = { most_recent = true }
