@@ -1,0 +1,11 @@
+version: 3
+automerge: false
+projects:
+  - name: swiftwad-poc
+    dir: terraform
+    terraform_version: v1.14.7
+    autoplan:
+      when_modified: ["*.tf", "*.tfvars"]
+      enabled: true
+    # POC: anyone with write access can comment `atlantis apply`.
+    # Real project: add `apply_requirements: [approved, mergeable]`.

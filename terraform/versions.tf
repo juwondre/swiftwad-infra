@@ -8,11 +8,12 @@ terraform {
     }
   }
 
+  # No AWS profile here: Atlantis authenticates via IRSA, laptops via
+  # AWS_PROFILE=swiftwad in the environment.
   backend "s3" {
     bucket       = "swiftwad-tf-state-905418331655"
     key          = "poc/terraform.tfstate"
     region       = "us-east-1"
-    profile      = "swiftwad"
     use_lockfile = true
   }
 }
