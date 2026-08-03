@@ -27,6 +27,14 @@ variable "operator_principal_arns" {
   ]
 }
 
+variable "viewer_principal_arns" {
+  description = "IAM principals granted read-only cluster access (EKS console browsing, kubectl get) — no mutations"
+  type        = list(string)
+  default = [
+    "arn:aws:iam::905418331655:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_engineering-permissions_3c971c4a142a7cde",
+  ]
+}
+
 variable "cluster_version" {
   type    = string
   default = "1.34"
