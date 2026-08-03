@@ -8,6 +8,12 @@ variable "cluster_prefix" {
   default = "swiftwad"
 }
 
+variable "public_zone_id" {
+  description = "Route53 hosted zone external-dns may write to"
+  type        = string
+  default     = "Z0448614337KG0YUUT6NR" # swiftwad.com
+}
+
 variable "operator_principal_arns" {
   description = "IAM principals granted cluster-admin on every cluster via access entries (humans/roles that need kubectl)"
   type        = list(string)
@@ -33,7 +39,7 @@ variable "node_group_sizes" {
   }))
   default = {
     dev     = { min = 2, desired = 2, max = 3 }
-    staging = { min = 2, desired = 2, max = 3 }
+    staging = { min = 3, desired = 3, max = 4 } # hub runs the platform stack
   }
 }
 
