@@ -449,3 +449,8 @@ Each of these cost real debugging time once, so you never pay for it again:
 17. ArgoCD's Dex dropping `web.allowedOrigins` — CORS via ALB listener attributes (§8.5)
 18. Kargo's two-layer RBAC — "list is not permitted" without global service accounts (§8.5)
 19. Local DNS negative caching after querying a name before its record exists — verify via `dig @1.1.1.1`, not the browser (§8.2)
+20. The EKS console's Resources view needs BOTH layers for the signed-in identity: IAM actions (`eks:Describe*`, `eks:List*`, `eks:AccessKubernetesApi`) on the permission set AND a cluster access entry — either alone still shows Unauthorized
+21. The account **root user cannot be granted cluster access at all** (access entries reject it, by AWS design) — humans use Identity Center users in groups; root stays in the safe
+22. SSO role ARNs in access entries need the **full pathed ARN** (`role/aws-reserved/sso.amazonaws.com/…`) — the opposite of the legacy aws-auth ConfigMap, which wanted paths stripped. And the role-name hash changes if the permission set is recreated
+23. IAM users can't hold Identity Center permission sets — "I granted the new IAM user the engineering role" silently grants nothing. Humans = Identity Center; machines = IAM roles with scoped trust; nobody = long-lived IAM users
+24. Manage permission sets with the `aws-ssoadmin` Terraform resources in the real project — ours was edited via CLI and is the one access-relevant config not yet in code
