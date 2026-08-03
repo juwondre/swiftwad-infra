@@ -17,18 +17,32 @@ module "eks" {
   # Disabled in favor of operator entries declared below — identical config
   # no matter which identity runs terraform.
   enable_cluster_creator_admin_permissions = false
-  access_entries = {
-    for idx, arn in var.operator_principal_arns :
-    "operator-${idx}" => {
-      principal_arn = arn
-      policy_associations = {
-        admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = { type = "cluster" }
+  access_entries = merge(
+    {
+      for idx, arn in var.operator_principal_arns :
+      "operator-${idx}" => {
+        principal_arn = arn
+        policy_associations = {
+          admin = {
+            policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = { type = "cluster" }
+          }
+        }
+      }
+    },
+    {
+      for idx, arn in var.viewer_principal_arns :
+      "viewer-${idx}" => {
+        principal_arn = arn
+        policy_associations = {
+          view = {
+            policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
+            access_scope = { type = "cluster" }
+          }
         }
       }
     }
-  }
+  )
 
   cluster_addons = {
     coredns    = { most_recent = true }
