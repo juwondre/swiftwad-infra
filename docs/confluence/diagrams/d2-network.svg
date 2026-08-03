@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="560" viewBox="0 0 1040 560" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5A6B77"/>
+    </marker>
+  </defs>
+  <rect width="1040" height="560" fill="#FFFFFF"/>
+  <text x="20" y="30" font-size="17" font-weight="bold" fill="#1C2733">Network topology — one VPC, two AZs, controlled ingress and egress</text>
+
+  <!-- internet -->
+  <rect x="20" y="56" width="1000" height="60" rx="8" fill="#F6F8F9" stroke="#94A3AD"/>
+  <text x="36" y="80" font-size="12" font-weight="bold" fill="#5A6B77">INTERNET</text>
+  <text x="36" y="100" font-size="11.5" fill="#5A6B77">Cloudflare DNS (authoritative for swiftwad.com) · GitHub · vendors' browsers</text>
+  <rect x="640" y="66" width="170" height="40" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="652" y="84" font-size="12" font-weight="bold" fill="#1C2733">WAF (regional)</text>
+  <text x="652" y="99" font-size="10.5" fill="#5A6B77">managed rules + rate limit</text>
+
+  <!-- VPC -->
+  <rect x="20" y="140" width="1000" height="330" rx="8" fill="#FFFFFF" stroke="#1C2733" stroke-width="1.5"/>
+  <text x="36" y="164" font-size="12" font-weight="bold" fill="#1C2733">VPC 10.20.0.0/16 — swiftwad-poc</text>
+
+  <!-- public subnets -->
+  <rect x="36" y="178" width="480" height="90" rx="6" fill="#F6F8F9" stroke="#94A3AD" stroke-dasharray="4 3"/>
+  <text x="50" y="198" font-size="11.5" font-weight="bold" fill="#5A6B77">PUBLIC SUBNETS (2 AZ)</text>
+  <rect x="50" y="208" width="140" height="48" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="60" y="228" font-size="12" font-weight="bold" fill="#1C2733">ALB: argocd</text>
+  <text x="60" y="244" font-size="10.5" fill="#5A6B77">ACM TLS · WAF attached</text>
+  <rect x="200" y="208" width="140" height="48" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="210" y="228" font-size="12" font-weight="bold" fill="#1C2733">ALB: kargo</text>
+  <text x="210" y="244" font-size="10.5" fill="#5A6B77">re-encrypts to pod TLS</text>
+  <rect x="350" y="208" width="150" height="48" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="360" y="228" font-size="12" font-weight="bold" fill="#1C2733">ELB: atlantis</text>
+  <text x="360" y="244" font-size="10.5" fill="#5A6B77">GitHub webhooks in</text>
+
+  <!-- NAT -->
+  <rect x="560" y="178" width="220" height="90" rx="6" fill="#EAF4F0" stroke="#1A6B54"/>
+  <text x="574" y="200" font-size="12" font-weight="bold" fill="#1A6B54">NAT gateway (single)</text>
+  <text x="574" y="219" font-size="11" fill="#5A6B77">Terraform-owned EIP —</text>
+  <text x="574" y="235" font-size="11" fill="#5A6B77">permanent egress IP; Cloudflare</text>
+  <text x="574" y="251" font-size="11" fill="#5A6B77">API token is IP-filtered to it</text>
+
+  <!-- private subnets -->
+  <rect x="36" y="286" width="984" height="168" rx="6" fill="#F6F8F9" stroke="#94A3AD" stroke-dasharray="4 3"/>
+  <text x="50" y="308" font-size="11.5" font-weight="bold" fill="#5A6B77">PRIVATE SUBNETS (2 AZ) — all nodes; one route table → NAT</text>
+
+  <rect x="50" y="320" width="440" height="118" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="64" y="342" font-size="12.5" font-weight="bold" fill="#1C2733">EKS swiftwad-staging (hub) — 3× t3.medium</text>
+  <text x="64" y="362" font-size="11" fill="#5A6B77">ArgoCD · Kargo · Dex · Atlantis · ALB controller · external-dns · ESO</text>
+  <text x="64" y="378" font-size="11" fill="#5A6B77">cert-manager · staging workloads · EBS CSI + default gp3 StorageClass</text>
+  <text x="64" y="398" font-size="11" fill="#5A6B77">API endpoint: public + in-VPC · access entries declared in Terraform</text>
+  <text x="64" y="418" font-size="11" fill="#5A6B77">(operator principals — creator-based admin disabled)</text>
+
+  <rect x="520" y="320" width="300" height="118" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="534" y="342" font-size="12.5" font-weight="bold" fill="#1C2733">EKS swiftwad-dev (spoke) — 2× t3.medium</text>
+  <text x="534" y="362" font-size="11" fill="#5A6B77">dev workloads only</text>
+  <text x="534" y="382" font-size="11" fill="#5A6B77">SG rule: hub → dev API :443</text>
+  <text x="534" y="402" font-size="11" fill="#5A6B77">(cross-cluster sync path)</text>
+
+  <rect x="850" y="320" width="156" height="118" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="864" y="342" font-size="12.5" font-weight="bold" fill="#1C2733">Out of VPC</text>
+  <text x="864" y="362" font-size="11" fill="#5A6B77">ECR · S3 tf-state</text>
+  <text x="864" y="378" font-size="11" fill="#5A6B77">Secrets Manager</text>
+  <text x="864" y="394" font-size="11" fill="#5A6B77">ACM · Route53*</text>
+  <text x="864" y="412" font-size="10" fill="#5A6B77">*zone exists, not in public</text>
+  <text x="864" y="425" font-size="10" fill="#5A6B77">delegation — CF is live DNS</text>
+
+  <!-- arrows -->
+  <line x1="270" y1="118" x2="270" y2="176" stroke="#5A6B77" stroke-width="1.5" marker-end="url(#a2)"/>
+  <text x="278" y="150" font-size="10.5" fill="#5A6B77">HTTPS 443 (TLS at ALB)</text>
+  <line x1="670" y1="176" x2="670" y2="106" stroke="#1A6B54" stroke-width="1.5" marker-end="url(#a2)"/>
+  <text x="680" y="150" font-size="10.5" fill="#1A6B54">all egress via one stable IP</text>
+  <line x1="270" y1="268" x2="270" y2="284" stroke="#5A6B77" stroke-width="1.5" marker-end="url(#a2)"/>
+
+  <text x="36" y="496" font-size="11.5" fill="#5A6B77">Cost note: three load balancers can be consolidated to one ALB via ingress group.name — first identified savings lever (~$36/month).</text>
+  <text x="36" y="516" font-size="11.5" fill="#5A6B77">Production note: add VPC endpoints (S3, ECR, STS) to take NAT off the critical path — also removes the "Atlantis replaces its own NAT" incident class.</text>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="430" viewBox="0 0 1040 430" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5A6B77"/>
+    </marker>
+  </defs>
+  <rect width="1040" height="430" fill="#FFFFFF"/>
+  <text x="20" y="30" font-size="17" font-weight="bold" fill="#1C2733">Promotion flow — measured timings from the live proof of concept</text>
+
+  <!-- lanes -->
+  <g font-size="11" font-weight="bold" fill="#5A6B77">
+    <text x="20" y="86">VENDOR</text>
+    <text x="20" y="156">CI / ECR</text>
+    <text x="20" y="226">KARGO</text>
+    <text x="20" y="296">ARGOCD / EKS</text>
+    <text x="20" y="366">RELEASE MGR</text>
+  </g>
+  <g stroke="#E3E8EC">
+    <line x1="110" y1="66" x2="1020" y2="66"/><line x1="110" y1="136" x2="1020" y2="136"/>
+    <line x1="110" y1="206" x2="1020" y2="206"/><line x1="110" y1="276" x2="1020" y2="276"/>
+    <line x1="110" y1="346" x2="1020" y2="346"/><line x1="110" y1="404" x2="1020" y2="404"/>
+  </g>
+
+  <rect x="120" y="76" width="140" height="44" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="132" y="95" font-size="12" font-weight="bold" fill="#1C2733">merge PR</text>
+  <text x="132" y="112" font-size="10.5" fill="#5A6B77">t = 0</text>
+
+  <rect x="300" y="146" width="180" height="44" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="312" y="165" font-size="12" font-weight="bold" fill="#1C2733">build + push :git-sha</text>
+  <text x="312" y="182" font-size="10.5" fill="#5A6B77">t ≈ 2–3 min (OIDC, scan)</text>
+
+  <rect x="520" y="216" width="180" height="44" rx="6" fill="#EAF4F0" stroke="#1A6B54"/>
+  <text x="532" y="235" font-size="12" font-weight="bold" fill="#1A6B54">freight discovered</text>
+  <text x="532" y="252" font-size="10.5" fill="#5A6B77">t + ≤30 s (poll, automatic)</text>
+
+  <rect x="740" y="216" width="180" height="44" rx="6" fill="#EAF4F0" stroke="#1A6B54"/>
+  <text x="752" y="235" font-size="12" font-weight="bold" fill="#1A6B54">dev auto-promote</text>
+  <text x="752" y="252" font-size="10.5" fill="#5A6B77">+12 s · git commit by Kargo</text>
+
+  <rect x="740" y="286" width="180" height="44" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="752" y="305" font-size="12" font-weight="bold" fill="#1C2733">dev synced + Healthy</text>
+  <text x="752" y="322" font-size="10.5" fill="#5A6B77">merge → running &lt; 4 min total</text>
+
+  <rect x="300" y="356" width="220" height="44" rx="6" fill="#EAF4F0" stroke="#1A6B54" stroke-width="1.6"/>
+  <text x="312" y="375" font-size="12" font-weight="bold" fill="#1A6B54">promote click (staging)</text>
+  <text x="312" y="392" font-size="10.5" fill="#5A6B77">recorded: email:approver@…</text>
+
+  <rect x="560" y="356" width="220" height="44" rx="6" fill="#FFFFFF" stroke="#1C2733"/>
+  <text x="572" y="375" font-size="12" font-weight="bold" fill="#1C2733">staging synced + Healthy</text>
+  <text x="572" y="392" font-size="10.5" fill="#5A6B77">same immutable image as dev</text>
+
+  <line x1="260" y1="98" x2="340" y2="144" stroke="#5A6B77" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="480" y1="168" x2="560" y2="214" stroke="#5A6B77" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="700" y1="238" x2="738" y2="238" stroke="#5A6B77" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="830" y1="260" x2="830" y2="284" stroke="#5A6B77" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="740" y1="330" x2="480" y2="358" stroke="#5A6B77" stroke-width="1.5" marker-end="url(#a4)" stroke-dasharray="5 4"/>
+  <text x="545" y="332" font-size="10.5" fill="#5A6B77">freight now eligible (verified in dev)</text>
+  <line x1="520" y1="378" x2="558" y2="378" stroke="#5A6B77" stroke-width="1.5" marker-end="url(#a4)"/>
+
+  <text x="120" y="422" font-size="11" fill="#5A6B77">Guarantees: staging only accepts freight verified in dev (structural) · promote requires the RBAC verb (per-stage) · every hop is a git commit or an attributed API action.</text>
+</svg>
