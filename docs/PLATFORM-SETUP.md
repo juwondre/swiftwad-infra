@@ -61,6 +61,13 @@ Three repos, and the boundary between them *is* the security model:
 3. Cross-cluster networking: the hub must reach each spoke's API server on 443. Same-VPC clusters need an ingress rule on the spoke's cluster security group (`aws_vpc_security_group_ingress_rule.hub_to_dev_api` in `eks.tf`). Without it, apps stick at `Unknown` with `dial tcp ... i/o timeout`.
 4. Apply the root app-of-apps (`argocd/root-app.yaml`); everything else (AppProjects, Applications) syncs from git. If child apps briefly complain `project ... does not exist`, it's an ordering blip — hard-refresh or restart the application controller once.
 
+**GitHub SSO security model — why not just anyone can log in.** Two independent gates: Dex's connector carries `orgs: [name: <org>]`, so Dex refuses to complete login for any GitHub account that is not an org member — enforced server-side regardless of what the user authorizes. And `policy.default: ""` means even an authenticated identity with no mapped team has zero permissions: empty app list, every API call denied. The org-membership gate makes **the GitHub org's own settings part of the platform's security boundary**, so the real project's org must have, before the first vendor is invited:
+
+- **Require two-factor authentication** (org → Authentication security). Without it, a password-only vendor account is one phish from your ArgoCD. Note GitHub removes non-2FA members when enabled — sequence the rollout.
+- **Base repository permission: none.** The default ("read") lets every org member — i.e. every vendor — read every org repo. Vendor isolation must hold at GitHub, not just at ArgoCD.
+- **Block member creation of public repositories.**
+- One GitHub **team per vendor**; the team slug is the RBAC group (`<org>:<team>`). Onboarding a vendor = team + three policy lines; offboarding = remove from team (access dies with the SSO session).
+
 **Vendor read-only access** (`configs.rbac` in the ArgoCD values):
 ```
 p, role:vendor-readonly, applications, get, <project>/*, allow
