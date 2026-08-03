@@ -19,10 +19,11 @@ variable "operator_principal_arns" {
   type        = list(string)
   default = [
     "arn:aws:iam::905418331655:user/swiftwad-deploy",
-    # IAM Identity Center admins (console access). Access entries reject ARNs
-    # with paths, so the /aws-reserved/sso.amazonaws.com/ path is stripped.
+    # IAM Identity Center admins (console access). Access entries validate the
+    # principal exists, so the FULL pathed ARN is required (it's the legacy
+    # aws-auth ConfigMap that wanted paths stripped — not access entries).
     # NOTE: the hash suffix changes if the permission set is ever recreated.
-    "arn:aws:iam::905418331655:role/AWSReservedSSO_AdministratorAccess_e98b01fa7eb06fb6",
+    "arn:aws:iam::905418331655:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_e98b01fa7eb06fb6",
   ]
 }
 
