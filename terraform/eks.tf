@@ -10,14 +10,13 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  cluster_endpoint_public_access           = true
-  enable_cluster_creator_admin_permissions = true
+  cluster_endpoint_public_access = true
 
-  # Operator admin access declared in code, not inherited from whoever ran
-  # apply last — otherwise the first Atlantis apply replaces the human
-  # creator's access entry and locks every laptop out of kubectl.
-  # (POC default is empty: the bootstrap user's entries were restored via the
-  # EKS API and live outside terraform. Real project: set this on day one.)
+  # Creator-based admin is caller-dependent: every alternation between local
+  # and Atlantis applies flipped the access entries and locked someone out.
+  # Disabled in favor of operator entries declared below — identical config
+  # no matter which identity runs terraform.
+  enable_cluster_creator_admin_permissions = false
   access_entries = {
     for idx, arn in var.operator_principal_arns :
     "operator-${idx}" => {
