@@ -90,7 +90,10 @@ data "aws_iam_policy_document" "external_secrets" {
       "secretsmanager:GetSecretValue",
       "secretsmanager:DescribeSecret",
     ]
-    resources = ["arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:argocd/*"]
+    resources = [
+      "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:argocd/*",
+      "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:platform/*",
+    ]
   }
 }
 
@@ -102,11 +105,18 @@ resource "aws_iam_role_policy" "external_secrets" {
   policy = data.aws_iam_policy_document.external_secrets.json
 }
 
-# Container for the Dex GitHub OAuth credentials. The value is set out-of-band
-# (never in terraform state or git): aws secretsmanager put-secret-value.
+# Containers for out-of-band credentials (values never touch terraform state
+# or git): aws secretsmanager put-secret-value.
 resource "aws_secretsmanager_secret" "dex_github" {
   name        = "argocd/dex-github"
   description = "GitHub OAuth app credentials for ArgoCD Dex SSO (keys: clientID, clientSecret)"
+}
+
+# swiftwad.com's live DNS is served by Cloudflare (the Route53 zone is not in
+# the public delegation path), so external-dns writes there instead.
+resource "aws_secretsmanager_secret" "cloudflare_dns" {
+  name        = "platform/cloudflare-dns"
+  description = "Cloudflare API token scoped to swiftwad.com DNS edit (key: apiToken)"
 }
 
 output "platform_role_arns" {
