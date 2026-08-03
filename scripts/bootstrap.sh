@@ -178,8 +178,11 @@ phase_kargo() {
   hash=$(htpasswd -bnBC 10 "" "$KARGO_ADMIN_PASSWORD" | tr -d ':\n')
   signkey=$(openssl rand -base64 32 | tr -d '=+/')
   role_arn=$(terraform -chdir="$TF_DIR" output -raw kargo_controller_role_arn)
+  # Non-secret config (SSO via ArgoCD's Dex, ALB ingress) lives in the gitops
+  # repo; only the secrets are injected here.
   helm --kubeconfig "$HUB_KC" upgrade --install kargo \
     oci://ghcr.io/akuity/kargo-charts/kargo -n kargo --create-namespace \
+    -f "$GITOPS_DIR/bootstrap/kargo-values.yaml" \
     --set api.adminAccount.passwordHash="$hash" \
     --set api.adminAccount.tokenSigningKey="$signkey" \
     --set "controller.serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${role_arn}" \
