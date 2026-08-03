@@ -15,9 +15,15 @@ variable "public_zone_id" {
 }
 
 variable "operator_principal_arns" {
-  description = "IAM principals granted cluster-admin on every cluster via access entries (humans/roles that need kubectl)"
+  description = "IAM principals granted cluster-admin on every cluster via access entries (humans/roles that need kubectl or the EKS console resource view)"
   type        = list(string)
-  default     = ["arn:aws:iam::905418331655:user/swiftwad-deploy"]
+  default = [
+    "arn:aws:iam::905418331655:user/swiftwad-deploy",
+    # IAM Identity Center admins (console access). Access entries reject ARNs
+    # with paths, so the /aws-reserved/sso.amazonaws.com/ path is stripped.
+    # NOTE: the hash suffix changes if the permission set is ever recreated.
+    "arn:aws:iam::905418331655:role/AWSReservedSSO_AdministratorAccess_e98b01fa7eb06fb6",
+  ]
 }
 
 variable "cluster_version" {
