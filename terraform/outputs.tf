@@ -13,3 +13,8 @@ output "ecr_repository_url" {
 output "gh_actions_role_arn" {
   value = aws_iam_role.gh_actions_sample_api.arn
 }
+
+output "nat_egress_ip" {
+  description = "Permanent egress IP — the Cloudflare token's IP filter must match this"
+  value       = aws_eip.nat.public_ip
+}
