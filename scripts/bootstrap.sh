@@ -67,7 +67,9 @@ need() { command -v "$1" >/dev/null || die "missing tool: $1"; }
 preflight() {
   for t in aws terraform helm kubectl gh jq openssl htpasswd; do need "$t"; done
   aws sts get-caller-identity >/dev/null || die "AWS auth failed for profile $AWS_PROFILE"
-  gh auth status >/dev/null 2>&1 || die "gh CLI not authenticated"
+  # gh auth status exits non-zero if ANY configured account has a stale token,
+  # even when the active one is fine — test the active token instead.
+  gh auth token >/dev/null 2>&1 || die "gh CLI not authenticated (no active token)"
   [ -n "$GITOPS_DIR" ] && [ -d "$GITOPS_DIR" ] || die "GITOPS_DIR not found — clone ${GITHUB_ORG}/${GITOPS_REPO} next to this repo or export GITOPS_DIR"
   local quota
   quota=$(aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A \
@@ -238,6 +240,23 @@ RBAC
 phase_atlantis() {
   hub_kubeconfig
   log "atlantis on ${HUB_CLUSTER}"
+
+  # Current EKS ships no default StorageClass (gp2 exists but is unmarked), so
+  # any PVC without an explicit class stays Pending forever. Provide gp3.
+  kubectl --kubeconfig "$HUB_KC" apply -f - <<'SC'
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+parameters:
+  type: gp3
+  encrypted: "true"
+SC
   local secret_file="$TF_DIR/../.atlantis-webhook-secret" webhook_secret role_arn
   if [ -f "$secret_file" ]; then webhook_secret=$(cat "$secret_file"); else
     webhook_secret=$(openssl rand -hex 20); printf '%s' "$webhook_secret" > "$secret_file"
@@ -254,6 +273,7 @@ phase_atlantis() {
     --set service.type=LoadBalancer \
     --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${role_arn}" \
     --set volumeClaim.dataStorage=5Gi \
+    --set volumeClaim.storageClassName=gp3 \
     --wait --timeout 8m
 
   log "waiting for load balancer hostname"

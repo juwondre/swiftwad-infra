@@ -99,7 +99,7 @@ Flow: open a PR touching terraform → Atlantis comments the plan → reviewer a
 
 **Gotcha — Atlantis becomes the "cluster creator".** The EKS module's `enable_cluster_creator_admin_permissions` grants admin to *whoever runs terraform*. The first Atlantis apply replaces the human bootstrap principal's access entry with the Atlantis role — instantly locking every laptop out of kubectl on all clusters. Restore with `aws eks create-access-entry` + `associate-access-policy` (EKS API, needs only IAM). The flip side: once state records Atlantis as creator, a plan run from a laptop wants to flip the entry back — the diff depends on who is planning, so local plans show creator-entry replaces that Atlantis plans don't. Harmless as long as applies only happen through Atlantis, but the real-project fix is structural: on fresh infra set `enable_cluster_creator_admin_permissions = false` and declare every operator principal in `operator_principal_arns` (wired to the module's `access_entries`) from day one — admin access becomes code, identical no matter who plans. Retrofitting that onto existing clusters requires importing the live access entries into state, which is why day one matters.
 
-**Gotcha — Atlantis needs storage.** EKS ships no CSI driver; the chart's default PVC stays `Pending` forever. Install the `aws-ebs-csi-driver` addon (see `ebs-csi.tf`) before enabling `volumeClaim`, or run stateless with an `emptyDir` mounted at `/atlantis-data` (loses locks/plans on pod restart — fine for POC, not for a busy team).
+**Gotcha — Atlantis needs storage, and EKS gives you none twice over.** First: EKS ships no CSI driver — install the `aws-ebs-csi-driver` addon (see `ebs-csi.tf`). Second, subtler: even with the driver running, current EKS marks **no StorageClass as default** (`gp2` exists but unannotated), so a PVC without an explicit class binds to nothing and sits `Pending` forever with the CSI driver healthy. The bootstrap script creates a default `gp3` class (encrypted, WaitForFirstConsumer) and pins Atlantis's `volumeClaim.storageClassName` to it. Both halves were found the hard way — the first on the original build, the second only during destroy-and-rebuild validation.
 
 ## Phase 6 — Per-service CI wiring
 
@@ -116,6 +116,10 @@ For each vendor service:
 - Gate: staging unchanged until a `Promotion` (UI button or CR); after approval staging serves the new build
 - Vendor RBAC: vendor account sees only its apps, can tail logs, 403 on sync
 - Atlantis: open a whitespace PR in the infra repo → plan comment appears → `atlantis apply` works
+
+## Validation status
+
+The full destroy → `bootstrap.sh all` cycle was executed against this account on 2026-08-02: 112 resources destroyed, then every phase rebuilt from scratch. Three fixes came out of it (stale-keyring-tolerant gh preflight, the default StorageClass, and confirmation that a transient EKS API timeout is recoverable by re-running the failed phase — phases are resumable by design). Expect ~25 min for terraform and ~15 min for the platform phases. After a rebuild with a purged ECR, apps show Degraded and stages show no freight until the first CI run repopulates the registry — that's correct, not broken.
 
 ## Teardown
 
