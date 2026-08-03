@@ -17,7 +17,7 @@ variable "public_zone_id" {
 variable "operator_principal_arns" {
   description = "IAM principals granted cluster-admin on every cluster via access entries (humans/roles that need kubectl)"
   type        = list(string)
-  default     = []
+  default     = ["arn:aws:iam::905418331655:user/swiftwad-deploy"]
 }
 
 variable "cluster_version" {
