@@ -29,6 +29,10 @@ GITOPS_REPO="swiftwad-gitops"
 
 STATE_BUCKET="swiftwad-tf-state-${AWS_ACCOUNT_ID}"
 
+# Kargo project namespace for the reference service — must match the project
+# name in the gitops repo's kargo/project.yaml (SERVICE + "-delivery").
+KARGO_PROJECT_NS="sample-api-delivery"
+
 HUB_ENV="staging"                            # cluster hosting argocd/kargo/atlantis
 SPOKE_ENVS=("dev")                           # registered as argocd spokes
 CLUSTER_PREFIX="swiftwad"                    # clusters are ${CLUSTER_PREFIX}-${env}
@@ -191,19 +195,19 @@ phase_kargo() {
   log "kargo delivery config + git credentials"
   kubectl --kubeconfig "$HUB_KC" apply -f "$GITOPS_DIR/kargo/project.yaml"
   for _ in $(seq 1 20); do
-    kubectl --kubeconfig "$HUB_KC" get ns sample-api-delivery >/dev/null 2>&1 && break; sleep 3
+    kubectl --kubeconfig "$HUB_KC" get ns ${KARGO_PROJECT_NS} >/dev/null 2>&1 && break; sleep 3
   done
 
-  if ! kubectl --kubeconfig "$HUB_KC" -n sample-api-delivery get secret kargo-gitops-creds >/dev/null 2>&1; then
+  if ! kubectl --kubeconfig "$HUB_KC" -n ${KARGO_PROJECT_NS} get secret kargo-gitops-creds >/dev/null 2>&1; then
     ssh-keygen -t ed25519 -N "" -C "kargo-promoter" -f "$WORKDIR/kargo_key" -q
     gh repo deploy-key add "$WORKDIR/kargo_key.pub" -R "${GITHUB_ORG}/${GITOPS_REPO}" \
       --allow-write --title "kargo-promoter"
     kubectl --kubeconfig "$HUB_KC" create secret generic kargo-gitops-creds \
-      -n sample-api-delivery \
+      -n ${KARGO_PROJECT_NS} \
       --from-literal=repoURL="ssh://git@github.com/${GITHUB_ORG}/${GITOPS_REPO}.git" \
       --from-file=sshPrivateKey="$WORKDIR/kargo_key"
     kubectl --kubeconfig "$HUB_KC" label secret kargo-gitops-creds \
-      -n sample-api-delivery kargo.akuity.io/cred-type=git
+      -n ${KARGO_PROJECT_NS} kargo.akuity.io/cred-type=git
   fi
 
   kubectl --kubeconfig "$HUB_KC" apply \
@@ -218,7 +222,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: stage-promoter
-  namespace: sample-api-delivery
+  namespace: ${KARGO_PROJECT_NS}
 rules:
   - apiGroups: ["kargo.akuity.io"]
     resources: ["stages"]
@@ -228,7 +232,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: stage-promoter-bootstrap
-  namespace: sample-api-delivery
+  namespace: ${KARGO_PROJECT_NS}
 subjects:
   - kind: User
     name: $(aws sts get-caller-identity --query Arn --output text)
@@ -313,7 +317,7 @@ phase_verify() {
   kubectl --kubeconfig "$HUB_KC" -n argocd get applications \
     -o custom-columns='NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status'
   log "kargo stages"
-  kubectl --kubeconfig "$HUB_KC" -n sample-api-delivery get warehouses,stages,freight 2>/dev/null || true
+  kubectl --kubeconfig "$HUB_KC" -n ${KARGO_PROJECT_NS} get warehouses,stages,freight 2>/dev/null || true
   log "atlantis"
   kubectl --kubeconfig "$HUB_KC" -n atlantis get pods 2>/dev/null || true
   log "done — see docs/PLATFORM-SETUP.md phase 7 for the full checklist"
