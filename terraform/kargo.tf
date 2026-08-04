@@ -24,7 +24,7 @@ data "aws_iam_policy_document" "kargo_trust" {
 }
 
 resource "aws_iam_role" "kargo_controller" {
-  name               = "kargo-controller-swiftwad-staging"
+  name               = "kargo-controller-${var.cluster_prefix}-staging"
   assume_role_policy = data.aws_iam_policy_document.kargo_trust.json
 }
 

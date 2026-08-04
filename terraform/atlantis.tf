@@ -28,7 +28,7 @@ data "aws_iam_policy_document" "atlantis_trust" {
 }
 
 resource "aws_iam_role" "atlantis" {
-  name               = "atlantis-swiftwad-staging"
+  name               = "atlantis-${var.cluster_prefix}-staging"
   assume_role_policy = data.aws_iam_policy_document.atlantis_trust.json
 }
 
