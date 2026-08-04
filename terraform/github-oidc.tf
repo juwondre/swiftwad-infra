@@ -1,7 +1,21 @@
-# The OIDC provider for token.actions.githubusercontent.com already exists in
-# this account, so it's referenced, not created.
+# A fresh account has no GitHub OIDC provider (create_github_oidc_provider =
+# true); the POC account already had one, so the default references it.
+resource "aws_iam_openid_connect_provider" "github" {
+  count = var.create_github_oidc_provider ? 1 : 0
+
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+}
+
 data "aws_iam_openid_connect_provider" "github" {
+  count = var.create_github_oidc_provider ? 0 : 1
+
   url = "https://token.actions.githubusercontent.com"
+}
+
+locals {
+  github_oidc_arn = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
 }
 
 # Role assumable only by the sample-api repo's main branch. This is the entire
@@ -12,7 +26,7 @@ data "aws_iam_policy_document" "gh_trust" {
 
     principals {
       type        = "Federated"
-      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
+      identifiers = [local.github_oidc_arn]
     }
 
     condition {
@@ -35,7 +49,7 @@ data "aws_iam_policy_document" "gh_trust" {
 }
 
 resource "aws_iam_role" "gh_actions_sample_api" {
-  name               = "gh-actions-swiftwad-sample-api"
+  name               = "gh-actions-${var.service_name}"
   assume_role_policy = data.aws_iam_policy_document.gh_trust.json
 }
 

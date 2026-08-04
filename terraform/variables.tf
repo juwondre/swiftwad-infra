@@ -8,6 +8,42 @@ variable "cluster_prefix" {
   default = "swiftwad"
 }
 
+variable "domain" {
+  description = "Base domain for platform UIs (argocd.<domain>, kargo.<domain>)"
+  type        = string
+  default     = "swiftwad.com"
+}
+
+variable "service_name" {
+  description = "Name stem for the reference service's IAM role (gh-actions-<service_name>)"
+  type        = string
+  default     = "swiftwad-sample-api"
+}
+
+variable "ecr_repo_name" {
+  description = "ECR repository name for the reference service"
+  type        = string
+  default     = "sample-api"
+}
+
+variable "create_github_oidc_provider" {
+  description = "Fresh accounts have no GitHub OIDC provider — set true to create it; false references the existing one"
+  type        = bool
+  default     = false
+}
+
+variable "create_wildcard_cert" {
+  description = "Request a new *.<domain> ACM cert (DNS validation records output for whoever serves the zone). False uses wildcard_cert_arn"
+  type        = bool
+  default     = false
+}
+
+variable "wildcard_cert_arn" {
+  description = "Existing ACM wildcard cert ARN, used when create_wildcard_cert is false"
+  type        = string
+  default     = "arn:aws:acm:us-east-1:905418331655:certificate/0ae80028-4f78-4e82-ac89-10ec9480ef5f"
+}
+
 variable "public_zone_id" {
   description = "Route53 hosted zone external-dns may write to"
   type        = string
