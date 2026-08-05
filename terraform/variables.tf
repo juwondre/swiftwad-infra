@@ -8,6 +8,11 @@ variable "cluster_prefix" {
   default = "swiftwad"
 }
 
+variable "vpc_name" {
+  type    = string
+  default = "swiftwad-poc"
+}
+
 variable "domain" {
   description = "Base domain for platform UIs (argocd.<domain>, kargo.<domain>)"
   type        = string
