@@ -10,6 +10,7 @@
 #     ./bootstrap.sh spokes
 #     ./bootstrap.sh kargo
 #     ./bootstrap.sh atlantis
+#     ./bootstrap.sh observability   # if enable_observability = true
 #     ./bootstrap.sh verify
 #   or everything: ./bootstrap.sh all
 #
@@ -332,6 +333,44 @@ SC
   log "atlantis ready at http://${host}"
 }
 
+phase_observability() {
+  hub_kubeconfig
+  log "observability — collectors and Grafana are ArgoCD Applications; this seeds and waits"
+
+  local obs
+  obs=$(terraform -chdir="$TF_DIR" output -json observability 2>/dev/null || echo "null")
+  [ "$obs" = "null" ] && die "observability backends absent — set enable_observability = true in tfvars and apply first"
+
+  log "AMP remote-write: $(echo "$obs" | jq -r .amp_remote_write)"
+  log "AMP query:        $(echo "$obs" | jq -r .amp_query_url)"
+  log "log group:        $(echo "$obs" | jq -r .log_group)"
+
+  # Grafana's GitHub OAuth app is a browser step; seed a placeholder so the
+  # ExternalSecret resolves and Grafana starts (SSO fails until the real values
+  # land — same pattern as the ArgoCD Dex secret).
+  if ! aws secretsmanager get-secret-value --secret-id grafana/github-oauth \
+       --query SecretString --output text >/dev/null 2>&1; then
+    aws secretsmanager put-secret-value --secret-id grafana/github-oauth \
+      --secret-string '{"clientID":"placeholder","clientSecret":"placeholder"}' >/dev/null
+    log "seeded placeholder Grafana OAuth credentials — replace with the real app's values"
+  fi
+
+  log "waiting for collectors and Grafana"
+  for _ in $(seq 1 40); do
+    local prom fb graf
+    prom=$(kubectl --kubeconfig "$HUB_KC" -n observability get sts,deploy -o name 2>/dev/null | grep -c prometheus || true)
+    fb=$(kubectl --kubeconfig "$HUB_KC" -n observability get ds -o name 2>/dev/null | grep -c fluent-bit || true)
+    graf=$(kubectl --kubeconfig "$HUB_KC" -n observability get deploy grafana -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo 0)
+    if [ "${prom:-0}" -ge 1 ] && [ "${fb:-0}" -ge 1 ] && [ "${graf:-0}" -ge 1 ]; then
+      log "observability stack up"
+      kubectl --kubeconfig "$HUB_KC" -n observability get pods
+      return 0
+    fi
+    sleep 15
+  done
+  log "WARNING: stack not fully ready — check: kubectl -n argocd get app grafana prometheus-agent fluent-bit"
+}
+
 phase_verify() {
   hub_kubeconfig
   log "argocd applications"
@@ -354,10 +393,13 @@ main() {
     spokes)       phase_spokes ;;
     kargo)        phase_kargo ;;
     atlantis)     phase_atlantis ;;
+    observability) phase_observability ;;
     verify)       phase_verify ;;
     all) phase_state_bucket; phase_terraform; phase_argocd; phase_spokes
-         phase_kargo; phase_atlantis; phase_verify ;;
-    *) die "usage: $0 {state-bucket|terraform|argocd|spokes|kargo|atlantis|verify|all}" ;;
+         phase_kargo; phase_atlantis
+         [ "$(terraform -chdir="$TF_DIR" output -json observability 2>/dev/null || echo null)" != "null" ] && phase_observability
+         phase_verify ;;
+    *) die "usage: $0 {state-bucket|terraform|argocd|spokes|kargo|atlantis|observability|verify|all}" ;;
   esac
 }
 

@@ -127,3 +127,71 @@ output "observability" {
     fluentbit_roles   = { for k, r in aws_iam_role.fluentbit : k => r.arn }
   } : null
 }
+
+# ── IRSA: Grafana (query AMP + CloudWatch Logs) ──
+data "aws_iam_policy_document" "grafana_trust" {
+  count = var.enable_observability ? 1 : 0
+
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [module.eks["staging"].oidc_provider_arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${module.eks["staging"].oidc_provider}:sub"
+      values   = ["system:serviceaccount:observability:grafana"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${module.eks["staging"].oidc_provider}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "grafana" {
+  count = var.enable_observability ? 1 : 0
+
+  name               = "grafana-${var.cluster_prefix}-staging"
+  assume_role_policy = data.aws_iam_policy_document.grafana_trust[0].json
+}
+
+resource "aws_iam_role_policy" "grafana" {
+  count = var.enable_observability ? 1 : 0
+
+  name = "query-metrics-and-logs"
+  role = aws_iam_role.grafana[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "aps:QueryMetrics", "aps:GetLabels", "aps:GetSeries", "aps:GetMetricMetadata",
+        ]
+        Resource = aws_prometheus_workspace.platform[0].arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogGroups", "logs:DescribeLogStreams", "logs:GetLogEvents",
+          "logs:FilterLogEvents", "logs:StartQuery", "logs:StopQuery", "logs:GetQueryResults",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
+
+# GitHub OAuth app credentials for Grafana SSO (value set out-of-band).
+resource "aws_secretsmanager_secret" "grafana_github" {
+  count = var.enable_observability ? 1 : 0
+
+  name        = "grafana/github-oauth"
+  description = "GitHub OAuth app for Grafana SSO (keys: clientID, clientSecret)"
+}

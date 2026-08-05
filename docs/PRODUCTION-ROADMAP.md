@@ -76,3 +76,19 @@ Phase 1 is independent — start now. Phase 2 gates prod traffic. Phase 4 gates 
 ## Cost trajectory
 
 POC sizing (2 environments, no observability): ~$395/month. Expect roughly **$900–1,400/month** at production shape — three environments in separate accounts, AMP/Grafana/log retention, multi-AZ NAT in prod. Levers already identified: shared ALB via ingress `group.name`, spot capacity for non-prod nodes, log retention tiering, and parking non-prod environments out of hours (the ~45-minute validated rebuild makes this genuinely viable).
+
+---
+
+## Phase 1 delivery notes (what shipped)
+
+**Backends (Terraform, behind `enable_observability`)**: AMP workspace, workloads log group with configurable retention, IRSA roles for the Prometheus agent and Fluent Bit (per cluster) and for Grafana (hub).
+
+**Collectors and UI (ArgoCD Applications in the `platform` project)**: kube-prometheus-stack in agent mode remote-writing to AMP; Fluent Bit to CloudWatch; Grafana with GitHub SSO, AMP + CloudWatch datasources, and dashboards provisioned from ConfigMaps in the gitops repo.
+
+**Dashboards**: `Platform — delivery health` (sync/health counts, deployment frequency, reconciliation p95, application inventory) and `Service overview` (namespace-templated: pods ready, restarts, CPU/memory against limits, and RED panels that populate once a service is instrumented per conformance §9).
+
+**Bootstrap**: an `observability` phase seeds Grafana's OAuth placeholder, prints the AMP endpoints, and waits for the stack; `all` runs it automatically when the backends exist.
+
+**Grafana role mapping** (GitHub org teams → Grafana roles): `platform` → Admin, `engineering` → Editor, every other org member → Viewer.
+
+**Known limitation — per-team folder isolation.** Grafana OSS maps identities to *roles*, not to *teams*, without Enterprise team-sync. Today every authenticated org member can see both folders; the Service dashboard's namespace variable organises by service rather than restricting by it. Options when strict isolation is required: (a) Amazon Managed Grafana with Identity Center groups and folder permissions (per-user cost, folder permissions via API), (b) Grafana Enterprise team sync, or (c) one Grafana per vendor for the extreme case. Recommendation: accept the current state for internal teams, and revisit before vendors get Grafana access — vendor log access via ArgoCD and per-namespace CloudWatch is already isolated.
