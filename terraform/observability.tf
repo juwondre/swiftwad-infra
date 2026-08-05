@@ -195,3 +195,52 @@ resource "aws_secretsmanager_secret" "grafana_github" {
   name        = "grafana/github-oauth"
   description = "GitHub OAuth app for Grafana SSO (keys: clientID, clientSecret)"
 }
+
+# ── IRSA: ADOT collector (traces to X-Ray, per cluster) ──
+data "aws_iam_policy_document" "adot_trust" {
+  for_each = var.enable_observability ? toset(var.environments) : toset([])
+
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [module.eks[each.key].oidc_provider_arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${module.eks[each.key].oidc_provider}:sub"
+      values   = ["system:serviceaccount:observability:adot-collector"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${module.eks[each.key].oidc_provider}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "adot" {
+  for_each = var.enable_observability ? toset(var.environments) : toset([])
+
+  name               = "adot-${var.cluster_prefix}-${each.key}"
+  assume_role_policy = data.aws_iam_policy_document.adot_trust[each.key].json
+}
+
+resource "aws_iam_role_policy_attachment" "adot_xray" {
+  for_each = var.enable_observability ? toset(var.environments) : toset([])
+
+  role       = aws_iam_role.adot[each.key].name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
+# Alert destinations (Slack webhook / PagerDuty routing key). Value set
+# out-of-band; Alertmanager reads it via ExternalSecret.
+resource "aws_secretsmanager_secret" "alert_destinations" {
+  count = var.enable_observability ? 1 : 0
+
+  name        = "platform/alert-destinations"
+  description = "Alertmanager destinations (keys: slackWebhookUrl, pagerdutyRoutingKey)"
+}
