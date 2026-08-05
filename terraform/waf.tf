@@ -1,6 +1,8 @@
 # WAF in front of the vendor-facing ArgoCD ALB. Attached by the ingress via
 # the alb.ingress.kubernetes.io/wafv2-acl-arn annotation.
 resource "aws_wafv2_web_acl" "argocd" {
+  count = var.enable_waf ? 1 : 0
+
   name  = "argocd-vendor-ui"
   scope = "REGIONAL"
 
@@ -82,5 +84,5 @@ resource "aws_wafv2_web_acl" "argocd" {
 }
 
 output "argocd_waf_acl_arn" {
-  value = aws_wafv2_web_acl.argocd.arn
+  value = var.enable_waf ? aws_wafv2_web_acl.argocd[0].arn : ""
 }

@@ -32,7 +32,7 @@ output "platform_config" {
     vpc_id            = module.vpc.vpc_id
     nat_egress_ip     = aws_eip.nat.public_ip
     wildcard_cert_arn = local.wildcard_cert_arn
-    waf_acl_arn       = aws_wafv2_web_acl.argocd.arn
+    waf_acl_arn       = var.enable_waf ? aws_wafv2_web_acl.argocd[0].arn : ""
     ecr_registry      = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com"
     ecr_repository    = aws_ecr_repository.sample_api.repository_url
     cluster_names     = { for k, m in module.eks : k => m.cluster_name }
