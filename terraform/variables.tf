@@ -122,3 +122,14 @@ variable "enable_waf" {
   type        = bool
   default     = true
 }
+
+variable "enable_observability" {
+  description = "AMP workspace, log group, and collector IRSA roles (Phase 1 of the production roadmap)"
+  type        = bool
+  default     = false
+}
+
+variable "log_retention_days" {
+  type    = number
+  default = 30
+}
