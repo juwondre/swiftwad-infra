@@ -116,3 +116,9 @@ variable "sample_app_repo_id_pinned" {
   type        = string
   default     = "juwondre@98793109/swiftwad-sample-api@1320664713"
 }
+
+variable "enable_waf" {
+  description = "WAF ACL for the UI ALBs — earns less behind VPN-only internal ALBs"
+  type        = bool
+  default     = true
+}
