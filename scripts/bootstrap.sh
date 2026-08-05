@@ -41,6 +41,12 @@ KARGO_ADMIN_PASSWORD="${KARGO_ADMIN_PASSWORD:-}"     # export before running, or
 ATLANTIS_GITHUB_USER="juwondre"
 ATLANTIS_GITHUB_TOKEN="${ATLANTIS_GITHUB_TOKEN:-$(gh auth token)}"  # GitHub App creds in real project
 
+# Required when the gitops repo is PRIVATE: a GitHub token with read access to
+# it (classic PAT with repo scope is the path org policies accept most often;
+# mind org PAT-lifetime caps — an over-long expiry is silently rejected).
+# Leave empty for public gitops repos.
+GITOPS_READ_TOKEN="${GITOPS_READ_TOKEN:-}"
+
 # IAM principals that keep kubectl admin on every cluster (day-one access
 # entries — see the Atlantis "cluster creator" gotcha in PLATFORM-SETUP.md).
 OPERATOR_ARNS=()                             # e.g. ("arn:aws:iam::123:role/platform-ops")
@@ -113,6 +119,21 @@ phase_argocd() {
   helm --kubeconfig "$HUB_KC" upgrade --install argocd argo/argo-cd \
     -n argocd --create-namespace \
     -f "$GITOPS_DIR/bootstrap/argocd-values.yaml" --wait --timeout 8m
+  # Private gitops repo: ArgoCD needs its own read credential (found live: a
+  # private repo leaves the root app permanently unsynced with only an auth
+  # condition to show for it).
+  if [ -n "$GITOPS_READ_TOKEN" ]; then
+    kubectl --kubeconfig "$HUB_KC" -n argocd create secret generic repo-gitops \
+      --from-literal=type=git \
+      --from-literal=url="https://github.com/${GITHUB_ORG}/${GITOPS_REPO}" \
+      --from-literal=username=x-access-token \
+      --from-literal=password="$GITOPS_READ_TOKEN" \
+      --dry-run=client -o yaml | kubectl --kubeconfig "$HUB_KC" apply -f -
+    kubectl --kubeconfig "$HUB_KC" -n argocd label secret repo-gitops \
+      argocd.argoproj.io/secret-type=repository --overwrite
+    log "argocd repository credential configured for private gitops repo"
+  fi
+
   kubectl --kubeconfig "$HUB_KC" apply -f "$GITOPS_DIR/argocd/root-app.yaml"
   log "argocd installed; root app applied"
 }
