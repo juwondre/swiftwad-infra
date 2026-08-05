@@ -43,6 +43,12 @@ variable "create_wildcard_cert" {
   default     = false
 }
 
+variable "validate_in_route53" {
+  description = "Auto-validate the created cert via var.public_zone_id (zone must be authoritative). Only meaningful with create_wildcard_cert = true"
+  type        = bool
+  default     = false
+}
+
 variable "wildcard_cert_arn" {
   description = "Existing ACM wildcard cert ARN, used when create_wildcard_cert is false"
   type        = string
