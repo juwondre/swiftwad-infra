@@ -320,6 +320,23 @@ SC
     --set volumeClaim.storageClassName=gp3 \
     --wait --timeout 8m
 
+  # Atlantis is the one component that must accept INBOUND traffic (GitHub
+  # webhooks), so it cannot be internal like the rest of the platform plane.
+  # Lock it to GitHub's published webhook ranges instead: publicly routable,
+  # but only from GitHub. Combined with the webhook secret, that is the whole
+  # exposure surface. (IPv6 ranges are filtered: loadBalancerSourceRanges is
+  # IPv4-only.)
+  log "restricting atlantis to GitHub's webhook source ranges"
+  GH_HOOK_CIDRS=$(gh api meta --jq '.hooks[] | select(contains(":") | not)' 2>/dev/null | paste -sd, - || echo "")
+  if [ -n "$GH_HOOK_CIDRS" ]; then
+    RANGES=$(echo "$GH_HOOK_CIDRS" | sed 's/[^,]*/"&"/g')
+    kubectl --kubeconfig "$HUB_KC" -n atlantis patch svc atlantis --type merge \
+      -p "{\"spec\":{\"loadBalancerSourceRanges\":[${RANGES}]}}" >/dev/null
+    log "atlantis reachable only from: ${GH_HOOK_CIDRS}"
+  else
+    log "WARNING: could not fetch GitHub webhook ranges — atlantis is open to the internet"
+  fi
+
   log "waiting for load balancer hostname"
   local host=""
   for _ in $(seq 1 40); do
