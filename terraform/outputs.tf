@@ -40,9 +40,9 @@ output "platform_config" {
       gh_actions       = aws_iam_role.gh_actions_sample_api.arn
       kargo_controller = aws_iam_role.kargo_controller.arn
       atlantis         = aws_iam_role.atlantis.arn
-      alb_controller   = aws_iam_role.platform["alb-controller"].arn
-      external_dns     = aws_iam_role.platform["external-dns"].arn
-      external_secrets = aws_iam_role.platform["external-secrets"].arn
+      alb_controller   = aws_iam_role.platform["alb-controller-staging"].arn
+      external_dns     = aws_iam_role.platform["external-dns-staging"].arn
+      external_secrets = aws_iam_role.platform["external-secrets-staging"].arn
     }
   }
 }

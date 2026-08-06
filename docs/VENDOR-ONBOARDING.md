@@ -39,7 +39,17 @@ Rank the wave: everything green → wave 1. One or two ambers → wave 2. Any re
 8. New vendor only: ArgoCD AppProject + three RBAC lines; Kargo claim-mapped ServiceAccounts for their team.
 9. Secrets they need: create in Secrets Manager under `<service>/*`, add `externalSecrets` entries to their values files. **Never** the values themselves in git.
 
-**Vendor side**
+**Service-plane exposure (platform team — NOT the vendor)**
+
+The vendor never touches DNS, certificates, load balancers, or their own exposure. Those live in the gitops repo, which they cannot write to. Per service that needs to serve external traffic:
+
+9a. Decide exposure and set it in the values file: `ingress: {enabled: true, public: true, host: <their real hostname>}`. Default is `public: false` (internal ALB) — make public a deliberate choice.
+9b. TLS: request an ACM certificate covering that hostname (or omit `certificateArn` and let the controller auto-discover a matching one). If the domain belongs to someone else, they add one validation record — once.
+9c. DNS: whoever owns that domain points a CNAME at the shared vendor-public ALB. Apex domains need ALIAS/flattening rather than CNAME.
+
+No new load balancer, no infra ticket: services join the shared ingress group.
+
+**Vendor side — and this is their entire surface**
 10. They add the standard build workflow (copy it — it reads repo variables, no edits).
 11. You set the four repo variables: `AWS_REGION`, `ECR_REGISTRY`, `ECR_REPO`, `CI_ROLE_ARN`.
 12. They merge to `main`.
