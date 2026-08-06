@@ -192,7 +192,7 @@ resource "aws_iam_role_policy" "grafana" {
 resource "aws_secretsmanager_secret" "grafana_github" {
   count = var.enable_observability ? 1 : 0
 
-  name        = "grafana/github-oauth"
+  name        = "platform/grafana-github-oauth"
   description = "GitHub OAuth app for Grafana SSO (keys: clientID, clientSecret)"
 }
 
