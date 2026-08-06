@@ -20,26 +20,26 @@
 set -euo pipefail
 
 ############################ CONFIG — edit me ############################
-export AWS_PROFILE="swiftwad"                # local auth; in-cluster is IRSA
-AWS_REGION="us-east-1"
-AWS_ACCOUNT_ID="905418331655"
+export AWS_PROFILE="__AWS_PROFILE__"                # local auth; in-cluster is IRSA
+AWS_REGION="__REGION__"
+AWS_ACCOUNT_ID="__ACCOUNT_ID__"
 
-GITHUB_ORG="juwondre"                        # org or user owning the repos
-INFRA_REPO="swiftwad-infra"
-GITOPS_REPO="swiftwad-gitops"
+GITHUB_ORG="__GH_ORG__"                        # org or user owning the repos
+INFRA_REPO="__INFRA_REPO__"
+GITOPS_REPO="__GITOPS_REPO__"
 
-STATE_BUCKET="swiftwad-tf-state-${AWS_ACCOUNT_ID}"
+STATE_BUCKET="__STATE_BUCKET__"
 
 # Kargo project namespace for the reference service — must match the project
 # name in the gitops repo's kargo/project.yaml (SERVICE + "-delivery").
-KARGO_PROJECT_NS="sample-api-delivery"
+KARGO_PROJECT_NS="__KARGO_PROJECT__"
 
 HUB_ENV="staging"                            # cluster hosting argocd/kargo/atlantis
 SPOKE_ENVS=("dev")                           # registered as argocd spokes
-CLUSTER_PREFIX="swiftwad"                    # clusters are ${CLUSTER_PREFIX}-${env}
+CLUSTER_PREFIX="__CLUSTER_PREFIX__"                    # clusters are ${CLUSTER_PREFIX}-${env}
 
 KARGO_ADMIN_PASSWORD="${KARGO_ADMIN_PASSWORD:-}"     # export before running, or set here
-ATLANTIS_GITHUB_USER="juwondre"
+ATLANTIS_GITHUB_USER="__ATLANTIS_GH_USER__"
 ATLANTIS_GITHUB_TOKEN="${ATLANTIS_GITHUB_TOKEN:-$(gh auth token)}"  # GitHub App creds in real project
 
 # Required when the gitops repo is PRIVATE: a GitHub token with read access to
@@ -72,6 +72,18 @@ HUB_CLUSTER="${CLUSTER_PREFIX}-${HUB_ENV}"
 HUB_KC="$WORKDIR/kc-hub"
 
 log()  { printf '\n==> %s\n' "$*"; }
+# Helm operations can hit transient admission-webhook failures on a fresh
+# cluster: the aws-load-balancer-controller registers a validating webhook for
+# Ingress objects, and its self-signed CA takes a moment to propagate. Retry
+# rather than failing a 30-minute build on a 30-second race.
+helm_retry() {
+  local n=1
+  until helm "$@"; do
+    [ $n -ge 3 ] && { printf 'helm failed after %s attempts\n' "$n" >&2; return 1; }
+    printf '   helm attempt %s failed (likely a webhook race) — retrying in 30s\n' "$n"
+    n=$((n+1)); sleep 30
+  done
+}
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null || die "missing tool: $1"; }
 
@@ -117,7 +129,7 @@ phase_argocd() {
   hub_kubeconfig
   helm repo add argo https://argoproj.github.io/argo-helm >/dev/null 2>&1 || true
   helm repo update argo >/dev/null
-  helm --kubeconfig "$HUB_KC" upgrade --install argocd argo/argo-cd \
+  helm_retry --kubeconfig "$HUB_KC" upgrade --install argocd argo/argo-cd \
     -n argocd --create-namespace \
     -f "$GITOPS_DIR/bootstrap/argocd-values.yaml" --wait --timeout 8m
   # Private gitops repo: ArgoCD needs its own read credential (found live: a
@@ -206,7 +218,7 @@ phase_kargo() {
   role_arn=$(terraform -chdir="$TF_DIR" output -raw kargo_controller_role_arn)
   # Non-secret config (SSO via ArgoCD's Dex, ALB ingress) lives in the gitops
   # repo; only the secrets are injected here.
-  helm --kubeconfig "$HUB_KC" upgrade --install kargo \
+  helm_retry --kubeconfig "$HUB_KC" upgrade --install kargo \
     oci://ghcr.io/akuity/kargo-charts/kargo -n kargo --create-namespace \
     -f "$GITOPS_DIR/bootstrap/kargo-values.yaml" \
     --set api.adminAccount.passwordHash="$hash" \
@@ -293,13 +305,16 @@ SC
   role_arn=$(terraform -chdir="$TF_DIR" output -raw atlantis_role_arn)
 
   helm repo add runatlantis https://runatlantis.github.io/helm-charts >/dev/null 2>&1 || true
-  helm --kubeconfig "$HUB_KC" upgrade --install atlantis runatlantis/atlantis \
+  helm_retry --kubeconfig "$HUB_KC" upgrade --install atlantis runatlantis/atlantis \
     -n atlantis --create-namespace \
     --set orgAllowlist="github.com/${GITHUB_ORG}/${INFRA_REPO}" \
     --set github.user="$ATLANTIS_GITHUB_USER" \
     --set github.token="$ATLANTIS_GITHUB_TOKEN" \
     --set github.secret="$webhook_secret" \
     --set service.type=LoadBalancer \
+    --set "service.annotations.service\.beta\.kubernetes\.io/aws-load-balancer-type=external" \
+    --set "service.annotations.service\.beta\.kubernetes\.io/aws-load-balancer-nlb-target-type=ip" \
+    --set "service.annotations.service\.beta\.kubernetes\.io/aws-load-balancer-scheme=internet-facing" \
     --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${role_arn}" \
     --set volumeClaim.dataStorage=5Gi \
     --set volumeClaim.storageClassName=gp3 \
@@ -348,10 +363,10 @@ phase_observability() {
   # Grafana's GitHub OAuth app is a browser step; seed a placeholder so the
   # ExternalSecret resolves and Grafana starts (SSO fails until the real values
   # land — same pattern as the ArgoCD Dex secret).
-  if ! aws secretsmanager get-secret-value --secret-id grafana/github-oauth \
+  if ! aws secretsmanager get-secret-value --secret-id platform/grafana-github-oauth \
        --query SecretString --output text >/dev/null 2>&1; then
-    aws secretsmanager put-secret-value --secret-id grafana/github-oauth \
-      --secret-string '{"clientID":"placeholder","clientSecret":"placeholder"}' >/dev/null
+    aws secretsmanager put-secret-value --secret-id platform/grafana-github-oauth \
+      --secret-string '{"clientID":"placeholder","clientSecret":"placeholder"}' >/dev/null || true
     log "seeded placeholder Grafana OAuth credentials — replace with the real app's values"
   fi
 
